@@ -82,10 +82,22 @@ export function AppLayout() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="h-screen overflow-hidden">
       <header className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-        <div className="flex h-16 items-center justify-between px-4 pl-16 sm:px-6 sm:pl-16 lg:pl-6">
+        <div className="flex h-16 items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              className="h-9 w-9 px-0"
+              aria-label={isSidebarOpen ? "Hide side panel" : "Show side panel"}
+              onClick={() => setIsSidebarOpen((current) => !current)}
+            >
+              {isSidebarOpen ? (
+                <PanelLeftClose className="h-5 w-5" />
+              ) : (
+                <PanelLeftOpen className="h-5 w-5" />
+              )}
+            </Button>
             <button
               className="flex items-center gap-3 text-left"
               onClick={() => navigate("/dashboard")}
@@ -110,47 +122,13 @@ export function AppLayout() {
 
       <div
         className={cn(
-          "relative grid min-h-[calc(100vh-4rem)]",
+          "relative grid h-[calc(100vh-4rem)] overflow-hidden",
           isSidebarOpen && "lg:grid-cols-[17rem_minmax(0,1fr)]"
         )}
       >
-        <Button
-          variant="outline"
-          className={cn(
-            "fixed z-50 h-9 w-9 rounded-md bg-card px-0 shadow-md transition-all",
-            isDesktop
-              ? isSidebarOpen
-                ? "left-[15.875rem] top-20"
-                : "left-4 top-20"
-              : isSidebarOpen
-                ? "left-[14.75rem] top-5"
-                : "left-4 top-3"
-          )}
-          aria-label={isSidebarOpen ? "Hide side panel" : "Show side panel"}
-          onClick={() => setIsSidebarOpen((current) => !current)}
-        >
-          {isSidebarOpen ? (
-            <PanelLeftClose className="h-4 w-4" />
-          ) : (
-            <PanelLeftOpen className="h-4 w-4" />
-          )}
-        </Button>
-
         {isSidebarOpen && (
-        <aside className="fixed bottom-0 left-0 top-0 z-40 w-[17rem] border-r bg-card shadow-xl lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:w-auto lg:shadow-none">
+        <aside className="fixed bottom-0 left-0 top-16 z-40 w-[17rem] border-r bg-card shadow-xl lg:sticky lg:top-0 lg:h-full lg:w-auto lg:shadow-none">
           <div className="flex h-full flex-col">
-            <div className="flex h-20 items-center gap-3 border-b px-4 lg:hidden">
-              <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <Bot className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">AI Excel Q&A Agent</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  Workbook questions and answers
-                </p>
-              </div>
-            </div>
-
             <nav className="grid flex-1 content-start gap-1 overflow-y-auto p-3">
               <SidebarGroup
                 isOpen={openGroups.overview}
@@ -204,13 +182,13 @@ export function AppLayout() {
 
         {isSidebarOpen && !isDesktop && (
           <button
-            className="fixed inset-0 z-30 bg-foreground/20"
+            className="fixed inset-x-0 bottom-0 top-16 z-30 bg-foreground/20"
             aria-label="Close side panel"
             onClick={() => setIsSidebarOpen(false)}
           />
         )}
 
-        <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8">
+        <main className="min-w-0 overflow-y-auto px-4 py-8 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <Outlet />
           </div>
