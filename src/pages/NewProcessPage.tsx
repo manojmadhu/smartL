@@ -1,8 +1,9 @@
 import { ArrowLeft, Download, Loader2, Save, Sparkles, Upload } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EditableQaTable } from "@/components/EditableQaTable";
 import { FileDropZone } from "@/components/FileDropZone";
 import { RagChatPanel } from "@/components/RagChatPanel";
@@ -13,10 +14,14 @@ import type { QuestionAnswer } from "@/types";
 
 export function NewProcessPage() {
   const navigate = useNavigate();
+  const qaSectionRef = useRef<HTMLDivElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [processId, setProcessId] = useState("");
   const [rows, setRows] = useState<QuestionAnswer[]>([]);
   const [busyAction, setBusyAction] = useState<"upload" | "ai" | "save" | null>(null);
+  const [pendingAction, setPendingAction] = useState<
+    "upload" | "ai" | "save" | "export" | null
+  >(null);
 
   const hasQuestions = rows.some((row) => row.question.trim());
   const canExport = useMemo(
@@ -33,6 +38,12 @@ export function NewProcessPage() {
       setProcessId(response.processId);
       setRows(response.questions);
       toast.success("Questions identified from the workbook.");
+      window.setTimeout(() => {
+        qaSectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start"
+        });
+      }, 100);
     } catch (caught) {
       toast.error(caught instanceof Error ? caught.message : "Upload failed");
     } finally {
@@ -81,6 +92,22 @@ export function NewProcessPage() {
     toast.success("Excel export started.");
   }
 
+  function requestConfirmation(action: NonNullable<typeof pendingAction>) {
+    setPendingAction(action);
+  }
+
+  async function runConfirmedAction() {
+    const action = pendingAction;
+    setPendingAction(null);
+
+    if (action === "upload") await uploadFile();
+    if (action === "ai") await processWithAi();
+    if (action === "save") await saveAnswers();
+    if (action === "export") exportToExcel();
+  }
+
+  const confirmation = getConfirmationContent(pendingAction, file?.name);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
@@ -107,7 +134,10 @@ export function NewProcessPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <FileDropZone selectedFile={file} onFileChange={setFile} />
-          <Button disabled={!file || busyAction !== null} onClick={uploadFile}>
+          <Button
+            disabled={!file || busyAction !== null}
+            onClick={() => requestConfirmation("upload")}
+          >
             {busyAction === "upload" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -120,13 +150,15 @@ export function NewProcessPage() {
 
       {rows.length > 0 && (
         <>
-          <EditableQaTable rows={rows} onRowsChange={setRows} />
+          <div ref={qaSectionRef} className="scroll-mt-24">
+            <EditableQaTable rows={rows} onRowsChange={setRows} />
+          </div>
 
           <div className="flex flex-wrap gap-3">
             <Button
               variant="secondary"
               disabled={!hasQuestions || busyAction !== null}
-              onClick={processWithAi}
+              onClick={() => requestConfirmation("ai")}
             >
               {busyAction === "ai" ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -135,7 +167,10 @@ export function NewProcessPage() {
               )}
               Process With AI
             </Button>
-            <Button disabled={!canExport || busyAction !== null} onClick={saveAnswers}>
+            <Button
+              disabled={!canExport || busyAction !== null}
+              onClick={() => requestConfirmation("save")}
+            >
               {busyAction === "save" ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -143,7 +178,11 @@ export function NewProcessPage() {
               )}
               Save and Confirm
             </Button>
-            <Button variant="outline" disabled={!canExport} onClick={exportToExcel}>
+            <Button
+              variant="outline"
+              disabled={!canExport}
+              onClick={() => requestConfirmation("export")}
+            >
               <Download className="h-4 w-4" />
               Export Excel
             </Button>
@@ -151,7 +190,62 @@ export function NewProcessPage() {
         </>
       )}
 
+      <ConfirmDialog
+        confirmLabel={confirmation.confirmLabel}
+        description={confirmation.description}
+        isOpen={pendingAction !== null}
+        isProcessing={busyAction !== null}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={runConfirmedAction}
+        title={confirmation.title}
+      />
       <RagChatPanel processId={processId} questions={rows} disabled={!processId} />
     </div>
   );
+}
+
+function getConfirmationContent(
+  action: "upload" | "ai" | "save" | "export" | null,
+  fileName?: string
+) {
+  if (action === "upload") {
+    return {
+      confirmLabel: "Upload",
+      title: "Upload workbook?",
+      description: `This will upload ${fileName ?? "the selected workbook"} and identify questions from the file.`
+    };
+  }
+
+  if (action === "ai") {
+    return {
+      confirmLabel: "Process",
+      title: "Process questions with AI?",
+      description:
+        "This will send the current question list to the AI service and update the answer column with generated responses."
+    };
+  }
+
+  if (action === "save") {
+    return {
+      confirmLabel: "Save",
+      title: "Save and confirm answers?",
+      description:
+        "This will store the current questions and answers as the confirmed data for this process."
+    };
+  }
+
+  if (action === "export") {
+    return {
+      confirmLabel: "Export",
+      title: "Export answers to Excel?",
+      description:
+        "This will download the current question and answer table as an Excel file."
+    };
+  }
+
+  return {
+    confirmLabel: "Confirm",
+    title: "Confirm transaction",
+    description: "Please confirm this transaction before continuing."
+  };
 }
